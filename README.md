@@ -30,6 +30,19 @@ NBros connects to the central Ithute realtime service rather than creating a sep
 
 The Redis service in `compose.yaml` is product-local and separate from the Redis used by `!thute Realtime`.
 
+## Optional standalone bootstrap admin login
+
+The existing email/password form uses Ithute Central Auth by default. For **explicitly enabled local development only**, configure in the private `.env`:
+
+```env
+NBROS_BOOTSTRAP_LOGIN_ENABLED=true
+NBROS_BOOTSTRAP_ADMIN_EMAIL=justy@ithute.co.ls
+NBROS_BOOTSTRAP_ADMIN_PASSWORD=<unique-random-password-at-least-12-characters>
+NBROS_BOOTSTRAP_SIGNING_SECRET=<independent-random-secret-at-least-32-characters>
+```
+
+Generate random secrets with `openssl rand -base64 36`; never commit secrets. Set `NBROS_PUBLIC_URL=http://localhost:3203`, `NBROS_OIDC_REDIRECT_URI=http://localhost:3203/api/auth/oidc/callback`, and `NBROS_COOKIE_SECURE=false` for localhost HTTP. Run `docker compose up --build -d`. The configured bootstrap account can use the normal login form without Ithute Auth. Bootstrap tokens expire after one hour and have no refresh token; normal users and SSO still use Central Auth. Bootstrap sign-in is rate limited and fails closed when Redis is unavailable. Disable bootstrap login when not needed.
+
 ## Local development
 
 1. Copy `.env.example` to `.env`.
