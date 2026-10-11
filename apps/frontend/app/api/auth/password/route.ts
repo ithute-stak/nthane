@@ -66,6 +66,29 @@ export async function POST(request: NextRequest) {
     return redirectWithError("missing_credentials");
   }
 
+  // Explicitly enabled bootstrap login is local to NBros, not a Central Auth password.
+  if (process.env.NBROS_BOOTSTRAP_LOGIN_ENABLED === "true" &&
+      identifier.toLowerCase() === (process.env.NBROS_BOOTSTRAP_ADMIN_EMAIL ?? "justy@ithute.co.ls").toLowerCase()) {
+    let local: Response;
+    try {
+      local = await fetch(`${process.env.NBROS_BACKEND_INTERNAL_URL ?? "http://backend:8000"}/api/v1/auth/bootstrap-login`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ identifier, password }), cache: "no-store",
+      });
+    } catch { return redirectWithError("auth_unavailable"); }
+    if (!local.ok) return redirectWithError(local.status === 429 ? "too_many_attempts" :
+      local.status === 401 ? "invalid_credentials" : "auth_unavailable");
+    const tokens = (await local.json()) as { access_token: string; expires_in: number };
+    if (!tokens.access_token) return redirectWithError("auth_response_invalid");
+    const response = NextResponse.redirect(new URL("/fleet", publicUrl()), 303);
+    response.cookies.set("nbros_access", tokens.access_token, {
+      httpOnly: true, secure: cookieSecure(), sameSite: "lax", path: "/",
+      maxAge: Math.min(3600, Number(tokens.expires_in) || 3600),
+    });
+    response.headers.set("Cache-Control", "no-store");
+    return response;
+  }
+
   let authResponse: Response;
   try {
     authResponse = await fetch(await centralLoginEndpoint(), {

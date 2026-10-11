@@ -65,7 +65,7 @@ export default async function Home({ searchParams }: HomeProps) {
               </p>
               <div className="login-security-note">
                 <strong>Central identity</strong>
-                <span>Your password is verified by Ithute Auth and is never stored by NBros.</span>
+                <span>Central Auth verifies normal user passwords. Local bootstrap administrator access is available only when explicitly enabled by the server.</span>
               </div>
             </div>
 
