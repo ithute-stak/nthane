@@ -11,6 +11,7 @@ from . import enterprise_ops as enterprise_ops_module
 from .enterprise_maturity import policy_aware_approval, router as maturity_router
 from .file_compat import router as file_compat_router
 from .fleet import router as fleet_router
+from .fleet_command import router as fleet_command_router
 from .fleet_advisor import router as fleet_advisor_router
 from .fleet_alerts_api import router as fleet_alerts_router
 from .fleet_inventory import router as fleet_inventory_router
@@ -28,6 +29,7 @@ app = FastAPI(title="NBros API", version="1.0.0", redoc_url=None)
 install_hardening(app)
 app.include_router(bootstrap_router)
 app.include_router(fleet_router)
+app.include_router(fleet_command_router)
 app.include_router(fleet_views_router)
 app.include_router(fleet_alerts_router)
 app.include_router(fleet_inventory_router)
