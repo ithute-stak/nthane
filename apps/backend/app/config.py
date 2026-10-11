@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     auth_jwks_url: str = "https://auth.ithute.co.ls/.well-known/jwks.json"
     auth_service_token_url: str = "https://auth.ithute.co.ls/v1/auth/service-token"
     bootstrap_admin_email: str = "justy@ithute.co.ls"
+    bootstrap_admin_password: str = ""
+    bootstrap_login_enabled: bool = False
+    bootstrap_signing_secret: str = ""
     upload_dir: str = "/data/uploads"
     max_upload_bytes: int = 10 * 1024 * 1024
 
