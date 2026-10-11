@@ -4,7 +4,7 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from redis import Redis
 from sqlalchemy import select, text
 
-from .auth import current_claims
+from .auth import current_claims, bootstrap_router
 from .config import settings
 from .db import SessionLocal, engine
 from . import enterprise_ops as enterprise_ops_module
@@ -26,6 +26,7 @@ enterprise_ops_module._approval = policy_aware_approval
 
 app = FastAPI(title="NBros API", version="1.0.0", redoc_url=None)
 install_hardening(app)
+app.include_router(bootstrap_router)
 app.include_router(fleet_router)
 app.include_router(fleet_views_router)
 app.include_router(fleet_alerts_router)
