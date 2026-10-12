@@ -15,6 +15,7 @@ from .auth import current_claims
 from .config import settings
 from .db import SessionLocal
 from .fleet_engine import evaluate_vehicle, match_vehicles
+from .fleet_reservation_guard import ensure_reservation_available
 from .models import (
     AccidentRecord,
     Assignment,
@@ -557,9 +558,10 @@ def add_reservation(payload: ReservationCreate, claims: dict = Depends(current_c
     with SessionLocal() as db:
         profile = _profile(db, claims)
         _require_branch(db, profile, payload.branch_id, write=True)
-        _vehicle(db, payload.branch_id, payload.vehicle_id)
-        if payload.driver_id:
-            _driver(db, payload.branch_id, payload.driver_id)
+        ensure_reservation_available(
+            db, branch_id=payload.branch_id, vehicle_id=payload.vehicle_id,
+            driver_id=payload.driver_id, start_at=payload.start_at, end_at=payload.end_at,
+        )
         row = Reservation(**payload.model_dump())
         db.add(row)
         db.commit()
