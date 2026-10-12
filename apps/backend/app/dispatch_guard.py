@@ -7,6 +7,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from .models import Assignment, Driver, Trip, Vehicle, VehicleTypeLicenseRule
+from .fleet_engine import evaluate_vehicle
 
 
 def ensure_dispatch_eligible(db: Session, *, branch_id: uuid.UUID,
@@ -36,6 +37,25 @@ def ensure_dispatch_eligible(db: Session, *, branch_id: uuid.UUID,
     )))
     if allowed and driver.license_category not in allowed:
         raise HTTPException(status_code=409, detail="driver licence category not permitted for this vehicle type")
+    # The existing deterministic engine is authoritative for compliance and
+    # maintenance safety. Orange states remain warnings; red states block.
+    snapshot = evaluate_vehicle(db, vehicle, at=at)
+    safety_sections = ("documents", "service", "mechanical", "inspection")
+    unsafe = [
+        name for name in safety_sections
+        if (snapshot[name]["overall"] if name == "documents" else snapshot[name])["level"] == "red"
+    ]
+    maintenance_open = any(
+        item["label"] == "UNDER MAINTENANCE"
+        for item in snapshot["availability"]["blockers"]
+    )
+    if maintenance_open:
+        unsafe.append("maintenance")
+    if unsafe:
+        raise HTTPException(
+            status_code=409,
+            detail="vehicle safety or compliance blocks dispatch: " + ", ".join(unsafe),
+        )
     model = Assignment if operation == "assignment" else Trip
     existing = db.scalar(select(model.id).where(
         model.branch_id == branch_id, model.status == "active",
