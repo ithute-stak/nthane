@@ -16,6 +16,7 @@ from .config import settings
 from .db import SessionLocal
 from .fleet_engine import evaluate_vehicle, match_vehicles
 from .fleet_reservation_guard import ensure_reservation_available
+from .dispatch_guard import ensure_dispatch_eligible
 from .models import (
     AccidentRecord,
     Assignment,
@@ -502,8 +503,11 @@ def add_assignment(payload: AssignmentCreate, claims: dict = Depends(current_cla
     with SessionLocal() as db:
         profile = _profile(db, claims)
         _require_branch(db, profile, payload.branch_id, write=True)
-        _vehicle(db, payload.branch_id, payload.vehicle_id)
-        _driver(db, payload.branch_id, payload.driver_id)
+        ensure_dispatch_eligible(
+            db, branch_id=payload.branch_id, vehicle_id=payload.vehicle_id,
+            driver_id=payload.driver_id, operation="assignment",
+            at=payload.start_at,
+        )
         row = Assignment(**payload.model_dump())
         db.add(row)
         db.commit()
@@ -529,8 +533,11 @@ def add_trip(payload: TripCreate, claims: dict = Depends(current_claims)) -> dic
     with SessionLocal() as db:
         profile = _profile(db, claims)
         _require_branch(db, profile, payload.branch_id, write=True)
-        _vehicle(db, payload.branch_id, payload.vehicle_id)
-        _driver(db, payload.branch_id, payload.driver_id)
+        ensure_dispatch_eligible(
+            db, branch_id=payload.branch_id, vehicle_id=payload.vehicle_id,
+            driver_id=payload.driver_id, operation="trip",
+            at=payload.start_at,
+        )
         row = Trip(**payload.model_dump())
         db.add(row)
         db.commit()
