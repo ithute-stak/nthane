@@ -48,3 +48,59 @@ def test_dispatch_blocks_expired_licence(db):
         ensure_dispatch_eligible(db, branch_id=branch.id, vehicle_id=vehicle.id,
             driver_id=driver.id, operation="trip", at=datetime(2026, 10, 12, tzinfo=timezone.utc))
     assert exc.value.status_code == 409
+
+
+def test_dispatch_blocks_expired_required_document_and_overdue_service(db):
+    from app.models import (
+        DocumentRequirement, VehicleDocument, ServiceRecord, Inspection
+    )
+    branch = Branch(code="COMP", name="Compliance branch")
+    db.add(branch); db.flush()
+    vehicle = Vehicle(branch_id=branch.id, registration_plate="COMP100",
+                      make="Toyota", model="Hilux", vehicle_type="light")
+    driver = Driver(branch_id=branch.id, full_name="Driver Three",
+                    license_number="D003", license_category="B",
+                    license_expiry=date(2028, 1, 1))
+    db.add_all([vehicle, driver]); db.flush()
+    db.add(DocumentRequirement(branch_id=branch.id, document_type="Insurance",
+                               is_required=True))
+    db.add(VehicleDocument(branch_id=branch.id, vehicle_id=vehicle.id,
+                           document_type="Insurance", expiry_date=date(2026, 1, 1)))
+    db.add(ServiceRecord(branch_id=branch.id, vehicle_id=vehicle.id,
+                         service_date=date(2026, 1, 1), mileage=1000,
+                         service_type="Annual", next_service_date=date(2026, 9, 1)))
+    db.add(Inspection(branch_id=branch.id, vehicle_id=vehicle.id,
+                      inspection_date=date(2026, 10, 1), status="passed",
+                      next_inspection_date=date(2027, 10, 1)))
+    db.commit()
+    with pytest.raises(HTTPException) as exc:
+        ensure_dispatch_eligible(db, branch_id=branch.id, vehicle_id=vehicle.id,
+             driver_id=driver.id, operation="trip",
+             at=datetime(2026, 10, 12, tzinfo=timezone.utc))
+    assert exc.value.status_code == 409
+    assert "documents" in exc.value.detail
+    assert "service" in exc.value.detail
+
+
+def test_dispatch_blocks_failed_inspection_and_open_work_order(db):
+    from app.models import Inspection, MaintenanceWorkOrder
+    branch = Branch(code="SAFE", name="Safety branch")
+    db.add(branch); db.flush()
+    vehicle = Vehicle(branch_id=branch.id, registration_plate="SAFE100",
+                      make="Toyota", model="Hilux", vehicle_type="light")
+    driver = Driver(branch_id=branch.id, full_name="Driver Four",
+                    license_number="D004", license_category="B",
+                    license_expiry=date(2028, 1, 1))
+    db.add_all([vehicle, driver]); db.flush()
+    db.add(Inspection(branch_id=branch.id, vehicle_id=vehicle.id,
+                      inspection_date=date(2026, 10, 1), status="failed"))
+    db.add(MaintenanceWorkOrder(branch_id=branch.id, vehicle_id=vehicle.id,
+                                description="Repair brakes", status="open"))
+    db.commit()
+    with pytest.raises(HTTPException) as exc:
+        ensure_dispatch_eligible(db, branch_id=branch.id, vehicle_id=vehicle.id,
+             driver_id=driver.id, operation="assignment",
+             at=datetime(2026, 10, 12, tzinfo=timezone.utc))
+    assert exc.value.status_code == 409
+    assert "inspection" in exc.value.detail
+    assert "maintenance" in exc.value.detail
